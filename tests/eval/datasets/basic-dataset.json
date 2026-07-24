@@ -1,0 +1,25 @@
+{
+  "eval_cases": [
+    {
+      "eval_case_id": "greeting",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Hello, what can you help me with?"}]
+      }
+    },
+    {
+      "eval_case_id": "weather_query",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "What's the weather like in San Francisco?"}]
+      }
+    },
+    {
+      "eval_case_id": "product_comparison",
+      "prompt": {
+        "role": "user",
+        "parts": [{"text": "Can you compare Google Pixel 8 Pro and iPhone 15 Pro?"}]
+      }
+    }
+  ]
+}

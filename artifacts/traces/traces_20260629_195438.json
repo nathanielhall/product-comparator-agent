@@ -1,0 +1,867 @@
+{
+  "eval_cases": [
+    {
+      "prompt": {
+        "parts": [
+          {
+            "text": "Hello, what can you help me with?"
+          }
+        ],
+        "role": "user"
+      },
+      "responses": [
+        {
+          "response": {
+            "parts": [
+              {
+                "text": "Hello! I am the Coordinator Agent for a product comparison system.\n\nMy primary function is to help you compare multiple products. I can handle the entire process, which involves:\n\n1.  **Clarifying** the exact products you want to compare (e.g., ensuring \"iPhone 15\" means the \"iPhone 15 Pro Max\").\n2.  **Researching** each confirmed product individually to gather detailed specifications, features, pricing, pros, and cons.\n3.  **Comparing** the researched products to provide a comprehensive synthesis, a comparative summary, and a final recommendation.\n\nTo start, please tell me the names of the products or models you would like me to compare. For example, you could ask, \"Can you compare the latest Samsung and Google flagship phones?\" or \"I want to compare the Sony WH-1000XM5 and the Bose QuietComfort Ultra headphones.\""
+              }
+            ],
+            "role": "model"
+          }
+        }
+      ],
+      "eval_case_id": "greeting",
+      "agent_data": {
+        "agents": {
+          "root_agent": {
+            "agent_id": "root_agent",
+            "agent_type": "LlmAgent",
+            "description": "",
+            "instruction": "You are the Coordinator Agent for the \"product_comparator\" multi-agent system.\nYour goal is to coordinate product comparison requests. You have access to:\n- `search_helper_agent`: A specialized task sub-agent to run Google searches and retrieve summaries of likely candidates.\n- `research_agent`: A specialized task sub-agent to research a single confirmed product.\n- `comparison_agent`: A specialized task sub-agent to compare multiple researched products and generate a synthesis/recommendation.\n- `request_input`: A tool to ask the user a question and wait for their response.\n- `get_weather`, `get_current_time`: Auxiliary tools.\n\nWorkflow Guidelines:\n1. Parse the user request to identify the specific list of product names or models they wish to compare (e.g., [\"Google Pixel 8 Pro\", \"Samsung Galaxy S24 Ultra\"]).\n2. Validate and clarify each product name before proceeding to research:\n   - For each input product, check if it is specific, unambiguous, and currently available by calling the `search_helper_agent` task with a search query.\n   - If a product name is ambiguous (e.g., \"iPhone 15\" could mean standard, Plus, Pro, or Pro Max; or \"Pixel 8\" could mean standard or Pro), use `search_helper_agent` to find likely specific candidates.\n   - If an input is ambiguous, call the `request_input` tool with a polite, clear message presenting the likely specific candidates and asking the user to confirm or choose which exact model they want to compare.\n   - Wait for the user to confirm before researching that product.\n3. Once all product names are fully validated and confirmed:\n   - For each confirmed product, invoke the `research_agent` task sub-agent sequentially, passing the exact confirmed product name.\n   - Keep track of the structured `research_agent` output for each product.\n4. After gathering the research data for all confirmed products:\n   - Call the `comparison_agent` task sub-agent with the compiled list of products' research data.\n5. Present the comparison summary, comparative tables, pros and cons, and recommendations from `comparison_agent` to the user in a beautiful, premium, and professional markdown format. Use rich formatting and highlight key trade-offs.",
+            "tools": [
+              {
+                "function_declarations": [
+                  {
+                    "description": "Simulates a web search. Use it get information on weather.\n\nArgs:\n    query: A string containing the location to get weather information for.\n\nReturns:\n    A string with the simulated weather information for the queried location.",
+                    "name": "get_weather",
+                    "parameters": {
+                      "properties": {
+                        "query": {
+                          "type": "STRING"
+                        }
+                      },
+                      "required": [
+                        "query"
+                      ],
+                      "type": "OBJECT"
+                    }
+                  }
+                ]
+              },
+              {
+                "function_declarations": [
+                  {
+                    "description": "Simulates getting the current time for a city.\n\nArgs:\n    city: The name of the city to get the current time for.\n\nReturns:\n    A string with the current time information.",
+                    "name": "get_current_time",
+                    "parameters": {
+                      "properties": {
+                        "query": {
+                          "type": "STRING"
+                        }
+                      },
+                      "required": [
+                        "query"
+                      ],
+                      "type": "OBJECT"
+                    }
+                  }
+                ]
+              },
+              {
+                "function_declarations": [
+                  {
+                    "description": "Ask the user a question and wait for their response.\n\nUse this when you need clarification or additional information before\nproceeding.\n\nArgs:\n  message: The question or prompt to display to the user.\n  response_schema: JSON Schema describing the expected response format. Use\n    {\"type\": \"string\"} for free-text, {\"type\": \"boolean\"} for\n    yes/no, or a structured object schema for complex input.\n\nReturns:\n  None. Long-running tools return None to signal that the execution should\n  pause and wait for user input.\n\nNOTE: This is a long-running operation. Do not call this tool again if it has already returned some intermediate or pending status.",
+                    "name": "adk_request_input",
+                    "parameters_json_schema": {
+                      "properties": {
+                        "message": {
+                          "title": "Message",
+                          "type": "string"
+                        },
+                        "response_schema": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": true,
+                              "type": "object"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "title": "Response Schema"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "title": "adk_request_inputParams",
+                      "type": "object"
+                    },
+                    "response_json_schema": {
+                      "type": "null"
+                    }
+                  }
+                ]
+              },
+              {
+                "function_declarations": [
+                  {
+                    "description": "Compares multiple researched products and generates a synthesis summary and recommendation.\nIMPORTANT: This tool delegates execution to a specialized agent. Do NOT call this tool in parallel with any other tools.",
+                    "name": "comparison_agent",
+                    "parameters_json_schema": {
+                      "$defs": {
+                        "ProductInfo": {
+                          "properties": {
+                            "product_name": {
+                              "description": "Exact name of the product.",
+                              "title": "Product Name",
+                              "type": "string"
+                            },
+                            "price_range": {
+                              "description": "Price range or MSRP.",
+                              "title": "Price Range",
+                              "type": "string"
+                            },
+                            "key_features": {
+                              "description": "Key features and specs.",
+                              "items": {
+                                "type": "string"
+                              },
+                              "title": "Key Features",
+                              "type": "array"
+                            },
+                            "ratings_summary": {
+                              "description": "Review and rating summary.",
+                              "title": "Ratings Summary",
+                              "type": "string"
+                            },
+                            "pros": {
+                              "description": "Pros of the product.",
+                              "items": {
+                                "type": "string"
+                              },
+                              "title": "Pros",
+                              "type": "array"
+                            },
+                            "cons": {
+                              "description": "Cons of the product.",
+                              "items": {
+                                "type": "string"
+                              },
+                              "title": "Cons",
+                              "type": "array"
+                            }
+                          },
+                          "required": [
+                            "product_name",
+                            "price_range",
+                            "key_features",
+                            "ratings_summary",
+                            "pros",
+                            "cons"
+                          ],
+                          "title": "ProductInfo",
+                          "type": "object"
+                        }
+                      },
+                      "properties": {
+                        "products": {
+                          "description": "List of structured research data for the confirmed products to compare.",
+                          "items": {
+                            "$ref": "#/$defs/ProductInfo"
+                          },
+                          "title": "Products",
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "products"
+                      ],
+                      "title": "ComparisonInput",
+                      "type": "object"
+                    },
+                    "response_json_schema": {
+                      "type": "string"
+                    }
+                  }
+                ]
+              }
+            ],
+            "sub_agents": [
+              "search_helper_agent",
+              "research_agent",
+              "comparison_agent"
+            ]
+          },
+          "search_helper_agent": {
+            "agent_id": "search_helper_agent",
+            "agent_type": "LlmAgent",
+            "description": "Specialized helper to perform Google Web Search and return a summarized set of results or potential product matches.",
+            "instruction": "You are the Search Helper Agent. Your specialized task is to perform Google Search queries on behalf of the Coordinator.\n\nYou have access to:\n- `google_search`: A tool to search Google.\n\nGuidelines:\n1. Use `google_search` to find relevant and accurate search results for the given query.\n2. Return a clean, summarized description of the results, specifically highlighting potential specific product models, configurations, or candidates if the query is a product name.",
+            "tools": [],
+            "sub_agents": []
+          },
+          "research_agent": {
+            "agent_id": "research_agent",
+            "agent_type": "LlmAgent",
+            "description": "Researches a single confirmed product to extract detailed specifications, pricing, reviews, pros, and cons.",
+            "instruction": "You are the Research Agent. Your specialized task is to find detailed, accurate information about a single, confirmed product.\n\nYou have access to:\n- `google_search`: A tool to search Google.\n\nGuidelines:\n1. Use `google_search` to find:\n   - The current retail price range or estimated pricing for the product.\n   - Key specifications and unique features.\n   - Overall user and expert review sentiment, including typical ratings.\n   - Distinct pros (strengths, positive aspects).\n   - Distinct cons (weaknesses, negative aspects).\n2. Synthesize and organize this information carefully.\n3. Return a comprehensive and detailed text report containing all these attributes. Do not use placeholder values.",
+            "tools": [],
+            "sub_agents": []
+          },
+          "comparison_agent": {
+            "agent_id": "comparison_agent",
+            "agent_type": "LlmAgent",
+            "description": "Compares multiple researched products and generates a synthesis summary and recommendation.",
+            "instruction": "You are the Comparison Agent. Your task is to receive structured data for multiple confirmed products and synthesize them to provide a comprehensive, objective, and clear comparison.\n\nGuidelines:\n1. Compare the products on key dimensions (e.g., price, specs, pros/cons, review sentiments).\n2. Generate:\n   - A clear, structured comparative Markdown table summarizing key specs and prices.\n   - A synthesized summary of how they compare.\n   - A balanced \"Pros and Cons\" comparison.\n3. Offer tentative, unbiased guidance and tailored recommendation based on different user needs or priorities (e.g., \"Best for battery life\", \"Best value\", \"Best for photography\").",
+            "tools": [
+              {
+                "function_declarations": [
+                  {
+                    "description": "Signal that this agent has completed its delegated task. Call this when you have finished your delegated task.",
+                    "name": "finish_task",
+                    "parameters_json_schema": {
+                      "additionalProperties": false,
+                      "description": "Default output schema when no custom output_schema is provided.\n\nUsed by FinishTaskTool to generate the function declaration when the\ntask agent does not define an explicit output_schema.",
+                      "properties": {
+                        "result": {
+                          "title": "Result",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "result"
+                      ],
+                      "title": "_DefaultTaskOutput",
+                      "type": "object"
+                    }
+                  }
+                ]
+              }
+            ],
+            "sub_agents": []
+          }
+        },
+        "turns": [
+          {
+            "turn_index": 0,
+            "turn_id": "turn_0",
+            "events": [
+              {
+                "author": "root_agent",
+                "content": {
+                  "parts": [
+                    {
+                      "text": "Hello! I am the Coordinator Agent for a product comparison system.\n\nMy primary function is to help you compare multiple products. I can handle the entire process, which involves:\n\n1.  **Clarifying** the exact products you want to compare (e.g., ensuring \"iPhone 15\" means the \"iPhone 15 Pro Max\").\n2.  **Researching** each confirmed product individually to gather detailed specifications, features, pricing, pros, and cons.\n3.  **Comparing** the researched products to provide a comprehensive synthesis, a comparative summary, and a final recommendation.\n\nTo start, please tell me the names of the products or models you would like me to compare. For example, you could ask, \"Can you compare the latest Samsung and Google flagship phones?\" or \"I want to compare the Sony WH-1000XM5 and the Bose QuietComfort Ultra headphones.\""
+                    }
+                  ],
+                  "role": "model"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "prompt": {
+        "parts": [
+          {
+            "text": "What's the weather like in San Francisco?"
+          }
+        ],
+        "role": "user"
+      },
+      "responses": [
+        {
+          "response": {
+            "parts": [
+              {
+                "text": "It's 60 degrees and foggy in San Francisco."
+              }
+            ],
+            "role": "model"
+          }
+        }
+      ],
+      "eval_case_id": "weather_query",
+      "agent_data": {
+        "agents": {
+          "root_agent": {
+            "agent_id": "root_agent",
+            "agent_type": "LlmAgent",
+            "description": "",
+            "instruction": "You are the Coordinator Agent for the \"product_comparator\" multi-agent system.\nYour goal is to coordinate product comparison requests. You have access to:\n- `search_helper_agent`: A specialized task sub-agent to run Google searches and retrieve summaries of likely candidates.\n- `research_agent`: A specialized task sub-agent to research a single confirmed product.\n- `comparison_agent`: A specialized task sub-agent to compare multiple researched products and generate a synthesis/recommendation.\n- `request_input`: A tool to ask the user a question and wait for their response.\n- `get_weather`, `get_current_time`: Auxiliary tools.\n\nWorkflow Guidelines:\n1. Parse the user request to identify the specific list of product names or models they wish to compare (e.g., [\"Google Pixel 8 Pro\", \"Samsung Galaxy S24 Ultra\"]).\n2. Validate and clarify each product name before proceeding to research:\n   - For each input product, check if it is specific, unambiguous, and currently available by calling the `search_helper_agent` task with a search query.\n   - If a product name is ambiguous (e.g., \"iPhone 15\" could mean standard, Plus, Pro, or Pro Max; or \"Pixel 8\" could mean standard or Pro), use `search_helper_agent` to find likely specific candidates.\n   - If an input is ambiguous, call the `request_input` tool with a polite, clear message presenting the likely specific candidates and asking the user to confirm or choose which exact model they want to compare.\n   - Wait for the user to confirm before researching that product.\n3. Once all product names are fully validated and confirmed:\n   - For each confirmed product, invoke the `research_agent` task sub-agent sequentially, passing the exact confirmed product name.\n   - Keep track of the structured `research_agent` output for each product.\n4. After gathering the research data for all confirmed products:\n   - Call the `comparison_agent` task sub-agent with the compiled list of products' research data.\n5. Present the comparison summary, comparative tables, pros and cons, and recommendations from `comparison_agent` to the user in a beautiful, premium, and professional markdown format. Use rich formatting and highlight key trade-offs.",
+            "tools": [
+              {
+                "function_declarations": [
+                  {
+                    "description": "Simulates a web search. Use it get information on weather.\n\nArgs:\n    query: A string containing the location to get weather information for.\n\nReturns:\n    A string with the simulated weather information for the queried location.",
+                    "name": "get_weather",
+                    "parameters": {
+                      "properties": {
+                        "query": {
+                          "type": "STRING"
+                        }
+                      },
+                      "required": [
+                        "query"
+                      ],
+                      "type": "OBJECT"
+                    }
+                  }
+                ]
+              },
+              {
+                "function_declarations": [
+                  {
+                    "description": "Simulates getting the current time for a city.\n\nArgs:\n    city: The name of the city to get the current time for.\n\nReturns:\n    A string with the current time information.",
+                    "name": "get_current_time",
+                    "parameters": {
+                      "properties": {
+                        "query": {
+                          "type": "STRING"
+                        }
+                      },
+                      "required": [
+                        "query"
+                      ],
+                      "type": "OBJECT"
+                    }
+                  }
+                ]
+              },
+              {
+                "function_declarations": [
+                  {
+                    "description": "Ask the user a question and wait for their response.\n\nUse this when you need clarification or additional information before\nproceeding.\n\nArgs:\n  message: The question or prompt to display to the user.\n  response_schema: JSON Schema describing the expected response format. Use\n    {\"type\": \"string\"} for free-text, {\"type\": \"boolean\"} for\n    yes/no, or a structured object schema for complex input.\n\nReturns:\n  None. Long-running tools return None to signal that the execution should\n  pause and wait for user input.\n\nNOTE: This is a long-running operation. Do not call this tool again if it has already returned some intermediate or pending status.",
+                    "name": "adk_request_input",
+                    "parameters_json_schema": {
+                      "properties": {
+                        "message": {
+                          "title": "Message",
+                          "type": "string"
+                        },
+                        "response_schema": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": true,
+                              "type": "object"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "title": "Response Schema"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "title": "adk_request_inputParams",
+                      "type": "object"
+                    },
+                    "response_json_schema": {
+                      "type": "null"
+                    }
+                  }
+                ]
+              },
+              {
+                "function_declarations": [
+                  {
+                    "description": "Compares multiple researched products and generates a synthesis summary and recommendation.\nIMPORTANT: This tool delegates execution to a specialized agent. Do NOT call this tool in parallel with any other tools.",
+                    "name": "comparison_agent",
+                    "parameters_json_schema": {
+                      "$defs": {
+                        "ProductInfo": {
+                          "properties": {
+                            "product_name": {
+                              "description": "Exact name of the product.",
+                              "title": "Product Name",
+                              "type": "string"
+                            },
+                            "price_range": {
+                              "description": "Price range or MSRP.",
+                              "title": "Price Range",
+                              "type": "string"
+                            },
+                            "key_features": {
+                              "description": "Key features and specs.",
+                              "items": {
+                                "type": "string"
+                              },
+                              "title": "Key Features",
+                              "type": "array"
+                            },
+                            "ratings_summary": {
+                              "description": "Review and rating summary.",
+                              "title": "Ratings Summary",
+                              "type": "string"
+                            },
+                            "pros": {
+                              "description": "Pros of the product.",
+                              "items": {
+                                "type": "string"
+                              },
+                              "title": "Pros",
+                              "type": "array"
+                            },
+                            "cons": {
+                              "description": "Cons of the product.",
+                              "items": {
+                                "type": "string"
+                              },
+                              "title": "Cons",
+                              "type": "array"
+                            }
+                          },
+                          "required": [
+                            "product_name",
+                            "price_range",
+                            "key_features",
+                            "ratings_summary",
+                            "pros",
+                            "cons"
+                          ],
+                          "title": "ProductInfo",
+                          "type": "object"
+                        }
+                      },
+                      "properties": {
+                        "products": {
+                          "description": "List of structured research data for the confirmed products to compare.",
+                          "items": {
+                            "$ref": "#/$defs/ProductInfo"
+                          },
+                          "title": "Products",
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "products"
+                      ],
+                      "title": "ComparisonInput",
+                      "type": "object"
+                    },
+                    "response_json_schema": {
+                      "type": "string"
+                    }
+                  }
+                ]
+              }
+            ],
+            "sub_agents": [
+              "search_helper_agent",
+              "research_agent",
+              "comparison_agent"
+            ]
+          },
+          "search_helper_agent": {
+            "agent_id": "search_helper_agent",
+            "agent_type": "LlmAgent",
+            "description": "Specialized helper to perform Google Web Search and return a summarized set of results or potential product matches.",
+            "instruction": "You are the Search Helper Agent. Your specialized task is to perform Google Search queries on behalf of the Coordinator.\n\nYou have access to:\n- `google_search`: A tool to search Google.\n\nGuidelines:\n1. Use `google_search` to find relevant and accurate search results for the given query.\n2. Return a clean, summarized description of the results, specifically highlighting potential specific product models, configurations, or candidates if the query is a product name.",
+            "tools": [],
+            "sub_agents": []
+          },
+          "research_agent": {
+            "agent_id": "research_agent",
+            "agent_type": "LlmAgent",
+            "description": "Researches a single confirmed product to extract detailed specifications, pricing, reviews, pros, and cons.",
+            "instruction": "You are the Research Agent. Your specialized task is to find detailed, accurate information about a single, confirmed product.\n\nYou have access to:\n- `google_search`: A tool to search Google.\n\nGuidelines:\n1. Use `google_search` to find:\n   - The current retail price range or estimated pricing for the product.\n   - Key specifications and unique features.\n   - Overall user and expert review sentiment, including typical ratings.\n   - Distinct pros (strengths, positive aspects).\n   - Distinct cons (weaknesses, negative aspects).\n2. Synthesize and organize this information carefully.\n3. Return a comprehensive and detailed text report containing all these attributes. Do not use placeholder values.",
+            "tools": [],
+            "sub_agents": []
+          },
+          "comparison_agent": {
+            "agent_id": "comparison_agent",
+            "agent_type": "LlmAgent",
+            "description": "Compares multiple researched products and generates a synthesis summary and recommendation.",
+            "instruction": "You are the Comparison Agent. Your task is to receive structured data for multiple confirmed products and synthesize them to provide a comprehensive, objective, and clear comparison.\n\nGuidelines:\n1. Compare the products on key dimensions (e.g., price, specs, pros/cons, review sentiments).\n2. Generate:\n   - A clear, structured comparative Markdown table summarizing key specs and prices.\n   - A synthesized summary of how they compare.\n   - A balanced \"Pros and Cons\" comparison.\n3. Offer tentative, unbiased guidance and tailored recommendation based on different user needs or priorities (e.g., \"Best for battery life\", \"Best value\", \"Best for photography\").",
+            "tools": [
+              {
+                "function_declarations": [
+                  {
+                    "description": "Signal that this agent has completed its delegated task. Call this when you have finished your delegated task.",
+                    "name": "finish_task",
+                    "parameters_json_schema": {
+                      "additionalProperties": false,
+                      "description": "Default output schema when no custom output_schema is provided.\n\nUsed by FinishTaskTool to generate the function declaration when the\ntask agent does not define an explicit output_schema.",
+                      "properties": {
+                        "result": {
+                          "title": "Result",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "result"
+                      ],
+                      "title": "_DefaultTaskOutput",
+                      "type": "object"
+                    }
+                  }
+                ]
+              }
+            ],
+            "sub_agents": []
+          }
+        },
+        "turns": [
+          {
+            "turn_index": 0,
+            "turn_id": "turn_0",
+            "events": [
+              {
+                "author": "root_agent",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "adk-9a266214-9923-4259-8fb4-b4d9a127e6df",
+                        "args": {
+                          "query": "San Francisco"
+                        },
+                        "name": "get_weather"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "root_agent",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "adk-9a266214-9923-4259-8fb4-b4d9a127e6df",
+                        "name": "get_weather",
+                        "response": {
+                          "result": "It's 60 degrees and foggy."
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              },
+              {
+                "author": "root_agent",
+                "content": {
+                  "parts": [
+                    {
+                      "text": "It's 60 degrees and foggy in San Francisco."
+                    }
+                  ],
+                  "role": "model"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "prompt": {
+        "parts": [
+          {
+            "text": "Can you compare Google Pixel 8 Pro and iPhone 15 Pro?"
+          }
+        ],
+        "role": "user"
+      },
+      "responses": [
+        {
+          "response": {
+            "parts": [
+              {
+                "text": "The Google Pixel 8 Pro and the iPhone 15 Pro are the flagship devices from their respective ecosystems, each excelling in different areas. The Pixel 8 Pro focuses on AI-driven features and long-term software support, while the iPhone 15 Pro emphasizes raw performance, premium materials, and video capability.\n\nHere is a detailed comparison of the two devices.\n\n---\n\n## Google Pixel 8 Pro vs. iPhone 15 Pro: Detailed Comparison\n\n| Feature | Google Pixel 8 Pro | iPhone 15 Pro |\n| :--- | :--- | :--- |\n| **Starting Price (MSRP)** | **$999.00** (128GB Storage, 12GB RAM) | **$999.00** (128GB Storage) |\n| **Processor** | **Google Tensor G3** | **Apple A17 Pro** (3nm Chip) |\n| **Display** | 6.7-inch Super Actua OLED | 6.1-inch Super Retina XDR |\n| **Refresh Rate** | 1Hz - 120Hz Dynamic | 1Hz - 120Hz ProMotion |\n| **Peak Brightness** | Up to **2,400 nits** | Up to **3,000 nits** (HDR content) |\n| **Main Rear Camera** | 50MP Main, 48MP Ultrawide, **48MP 5x Telephoto** | 48MP Main, 12MP Ultrawide, **12MP 3x Telephoto** |\n| **Body Material** | Aluminum frame, Matte Glass Back | **Titanium** (Lighter and more comfortable) |\n| **Software Support** | **7 Years** of OS and Security Updates | Typically 5-6 years of iOS support |\n| **Unique Feature** | Exclusive Google **AI/Assistant features**, Thermometer | Customizable **Action Button**, **USB-C** port |\n\n---\n\n## Key Specifications and Features\n\n### Google Pixel 8 Pro\n\nThe Pixel 8 Pro is Google’s top-tier phone, defined by its artificial intelligence (AI) and computational photography.\n*   **Processor:** The **Google Tensor G3** chip is specifically optimized for on-device machine learning, driving advanced AI features but offering lower raw performance compared to the A17 Pro, especially under sustained load.\n*   **Cameras:** It features a versatile triple-camera system, notably including a **5x optical zoom** telephoto lens. Key features are AI-assisted editing tools like **Magic Eraser** and **Best Take**.\n*   **Display:** The 6.7-inch Super Actua OLED display is very bright, with a peak brightness of 2,400 nits, and uses a dynamic refresh rate from 1Hz to 120Hz for smooth scrolling and efficiency.\n*   **Software Commitment:** A standout feature is Google’s promise of **7 years of software and security updates**, making it the current leader in long-term support.\n\n### iPhone 15 Pro\n\nThe iPhone 15 Pro is a compact powerhouse built for speed and premium feel.\n*   **Processor:** The **A17 Pro** chip delivers exceptional, class-leading performance, making it ideal for demanding tasks, gaming (including console titles), and video editing.\n*   **Cameras:** The 48MP main sensor delivers exceptional detail. While it only has a **3x optical zoom** telephoto (the 5x is reserved for the Pro Max), it is renowned for its **superior video quality**.\n*   **Design & Hardware:** It features a new **titanium build**, making it lighter and more comfortable to hold than previous Pro models. It also replaces the mute switch with a customizable **Action Button**.\n*   **Connectivity:** The switch to a **USB-C port** finally brings a standard connection for charging and data transfer, with support for advanced features.\n\n---\n\n## Review Sentiment, Pros, and Cons\n\n| Category | Google Pixel 8 Pro | iPhone 15 Pro |\n| :--- | :--- | :--- |\n| **Overall Sentiment** | Highly rated, especially for its camera and software features. Considered a compelling flagship that competes with the best. | Uncompromising, premium flagship with a focus on raw power and design refinements. A top-tier compact smartphone. |\n| **Distinct Pros** | **7 Years of Software Support** (OS & Security), **Exclusive AI Features** (Magic Eraser, Call Screening), **5x Telephoto Zoom** camera, Clean Android experience. | **Exceptional A17 Pro Performance** (Best in class for speed/gaming), **Premium Titanium Design** (Lighter/More Comfortable), Customizable **Action Button**, **Superior Video Capture Quality**. |\n| **Distinct Cons** | **Tensor G3 is slower** in raw performance/stability under load than rivals, **Battery life is not competitive** against the best flagships, Charging speed is modest/behind the curve. | **Limited to 3x Optical Zoom** (less than Pro Max/Pixel 8 Pro), **Premium Pricing**, Battery life is average, with no significant improvement over the predecessor."
+              }
+            ],
+            "role": "model"
+          }
+        }
+      ],
+      "eval_case_id": "product_comparison",
+      "agent_data": {
+        "agents": {
+          "root_agent": {
+            "agent_id": "root_agent",
+            "agent_type": "LlmAgent",
+            "description": "",
+            "instruction": "You are the Coordinator Agent for the \"product_comparator\" multi-agent system.\nYour goal is to coordinate product comparison requests. You have access to:\n- `search_helper_agent`: A specialized task sub-agent to run Google searches and retrieve summaries of likely candidates.\n- `research_agent`: A specialized task sub-agent to research a single confirmed product.\n- `comparison_agent`: A specialized task sub-agent to compare multiple researched products and generate a synthesis/recommendation.\n- `request_input`: A tool to ask the user a question and wait for their response.\n- `get_weather`, `get_current_time`: Auxiliary tools.\n\nWorkflow Guidelines:\n1. Parse the user request to identify the specific list of product names or models they wish to compare (e.g., [\"Google Pixel 8 Pro\", \"Samsung Galaxy S24 Ultra\"]).\n2. Validate and clarify each product name before proceeding to research:\n   - For each input product, check if it is specific, unambiguous, and currently available by calling the `search_helper_agent` task with a search query.\n   - If a product name is ambiguous (e.g., \"iPhone 15\" could mean standard, Plus, Pro, or Pro Max; or \"Pixel 8\" could mean standard or Pro), use `search_helper_agent` to find likely specific candidates.\n   - If an input is ambiguous, call the `request_input` tool with a polite, clear message presenting the likely specific candidates and asking the user to confirm or choose which exact model they want to compare.\n   - Wait for the user to confirm before researching that product.\n3. Once all product names are fully validated and confirmed:\n   - For each confirmed product, invoke the `research_agent` task sub-agent sequentially, passing the exact confirmed product name.\n   - Keep track of the structured `research_agent` output for each product.\n4. After gathering the research data for all confirmed products:\n   - Call the `comparison_agent` task sub-agent with the compiled list of products' research data.\n5. Present the comparison summary, comparative tables, pros and cons, and recommendations from `comparison_agent` to the user in a beautiful, premium, and professional markdown format. Use rich formatting and highlight key trade-offs.",
+            "tools": [
+              {
+                "function_declarations": [
+                  {
+                    "description": "Simulates a web search. Use it get information on weather.\n\nArgs:\n    query: A string containing the location to get weather information for.\n\nReturns:\n    A string with the simulated weather information for the queried location.",
+                    "name": "get_weather",
+                    "parameters": {
+                      "properties": {
+                        "query": {
+                          "type": "STRING"
+                        }
+                      },
+                      "required": [
+                        "query"
+                      ],
+                      "type": "OBJECT"
+                    }
+                  }
+                ]
+              },
+              {
+                "function_declarations": [
+                  {
+                    "description": "Simulates getting the current time for a city.\n\nArgs:\n    city: The name of the city to get the current time for.\n\nReturns:\n    A string with the current time information.",
+                    "name": "get_current_time",
+                    "parameters": {
+                      "properties": {
+                        "query": {
+                          "type": "STRING"
+                        }
+                      },
+                      "required": [
+                        "query"
+                      ],
+                      "type": "OBJECT"
+                    }
+                  }
+                ]
+              },
+              {
+                "function_declarations": [
+                  {
+                    "description": "Ask the user a question and wait for their response.\n\nUse this when you need clarification or additional information before\nproceeding.\n\nArgs:\n  message: The question or prompt to display to the user.\n  response_schema: JSON Schema describing the expected response format. Use\n    {\"type\": \"string\"} for free-text, {\"type\": \"boolean\"} for\n    yes/no, or a structured object schema for complex input.\n\nReturns:\n  None. Long-running tools return None to signal that the execution should\n  pause and wait for user input.\n\nNOTE: This is a long-running operation. Do not call this tool again if it has already returned some intermediate or pending status.",
+                    "name": "adk_request_input",
+                    "parameters_json_schema": {
+                      "properties": {
+                        "message": {
+                          "title": "Message",
+                          "type": "string"
+                        },
+                        "response_schema": {
+                          "anyOf": [
+                            {
+                              "additionalProperties": true,
+                              "type": "object"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "default": null,
+                          "title": "Response Schema"
+                        }
+                      },
+                      "required": [
+                        "message"
+                      ],
+                      "title": "adk_request_inputParams",
+                      "type": "object"
+                    },
+                    "response_json_schema": {
+                      "type": "null"
+                    }
+                  }
+                ]
+              },
+              {
+                "function_declarations": [
+                  {
+                    "description": "Compares multiple researched products and generates a synthesis summary and recommendation.\nIMPORTANT: This tool delegates execution to a specialized agent. Do NOT call this tool in parallel with any other tools.",
+                    "name": "comparison_agent",
+                    "parameters_json_schema": {
+                      "$defs": {
+                        "ProductInfo": {
+                          "properties": {
+                            "product_name": {
+                              "description": "Exact name of the product.",
+                              "title": "Product Name",
+                              "type": "string"
+                            },
+                            "price_range": {
+                              "description": "Price range or MSRP.",
+                              "title": "Price Range",
+                              "type": "string"
+                            },
+                            "key_features": {
+                              "description": "Key features and specs.",
+                              "items": {
+                                "type": "string"
+                              },
+                              "title": "Key Features",
+                              "type": "array"
+                            },
+                            "ratings_summary": {
+                              "description": "Review and rating summary.",
+                              "title": "Ratings Summary",
+                              "type": "string"
+                            },
+                            "pros": {
+                              "description": "Pros of the product.",
+                              "items": {
+                                "type": "string"
+                              },
+                              "title": "Pros",
+                              "type": "array"
+                            },
+                            "cons": {
+                              "description": "Cons of the product.",
+                              "items": {
+                                "type": "string"
+                              },
+                              "title": "Cons",
+                              "type": "array"
+                            }
+                          },
+                          "required": [
+                            "product_name",
+                            "price_range",
+                            "key_features",
+                            "ratings_summary",
+                            "pros",
+                            "cons"
+                          ],
+                          "title": "ProductInfo",
+                          "type": "object"
+                        }
+                      },
+                      "properties": {
+                        "products": {
+                          "description": "List of structured research data for the confirmed products to compare.",
+                          "items": {
+                            "$ref": "#/$defs/ProductInfo"
+                          },
+                          "title": "Products",
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "products"
+                      ],
+                      "title": "ComparisonInput",
+                      "type": "object"
+                    },
+                    "response_json_schema": {
+                      "type": "string"
+                    }
+                  }
+                ]
+              }
+            ],
+            "sub_agents": [
+              "search_helper_agent",
+              "research_agent",
+              "comparison_agent"
+            ]
+          },
+          "search_helper_agent": {
+            "agent_id": "search_helper_agent",
+            "agent_type": "LlmAgent",
+            "description": "Specialized helper to perform Google Web Search and return a summarized set of results or potential product matches.",
+            "instruction": "You are the Search Helper Agent. Your specialized task is to perform Google Search queries on behalf of the Coordinator.\n\nYou have access to:\n- `google_search`: A tool to search Google.\n\nGuidelines:\n1. Use `google_search` to find relevant and accurate search results for the given query.\n2. Return a clean, summarized description of the results, specifically highlighting potential specific product models, configurations, or candidates if the query is a product name.",
+            "tools": [],
+            "sub_agents": []
+          },
+          "research_agent": {
+            "agent_id": "research_agent",
+            "agent_type": "LlmAgent",
+            "description": "Researches a single confirmed product to extract detailed specifications, pricing, reviews, pros, and cons.",
+            "instruction": "You are the Research Agent. Your specialized task is to find detailed, accurate information about a single, confirmed product.\n\nYou have access to:\n- `google_search`: A tool to search Google.\n\nGuidelines:\n1. Use `google_search` to find:\n   - The current retail price range or estimated pricing for the product.\n   - Key specifications and unique features.\n   - Overall user and expert review sentiment, including typical ratings.\n   - Distinct pros (strengths, positive aspects).\n   - Distinct cons (weaknesses, negative aspects).\n2. Synthesize and organize this information carefully.\n3. Return a comprehensive and detailed text report containing all these attributes. Do not use placeholder values.",
+            "tools": [],
+            "sub_agents": []
+          },
+          "comparison_agent": {
+            "agent_id": "comparison_agent",
+            "agent_type": "LlmAgent",
+            "description": "Compares multiple researched products and generates a synthesis summary and recommendation.",
+            "instruction": "You are the Comparison Agent. Your task is to receive structured data for multiple confirmed products and synthesize them to provide a comprehensive, objective, and clear comparison.\n\nGuidelines:\n1. Compare the products on key dimensions (e.g., price, specs, pros/cons, review sentiments).\n2. Generate:\n   - A clear, structured comparative Markdown table summarizing key specs and prices.\n   - A synthesized summary of how they compare.\n   - A balanced \"Pros and Cons\" comparison.\n3. Offer tentative, unbiased guidance and tailored recommendation based on different user needs or priorities (e.g., \"Best for battery life\", \"Best value\", \"Best for photography\").",
+            "tools": [
+              {
+                "function_declarations": [
+                  {
+                    "description": "Signal that this agent has completed its delegated task. Call this when you have finished your delegated task.",
+                    "name": "finish_task",
+                    "parameters_json_schema": {
+                      "additionalProperties": false,
+                      "description": "Default output schema when no custom output_schema is provided.\n\nUsed by FinishTaskTool to generate the function declaration when the\ntask agent does not define an explicit output_schema.",
+                      "properties": {
+                        "result": {
+                          "title": "Result",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "result"
+                      ],
+                      "title": "_DefaultTaskOutput",
+                      "type": "object"
+                    }
+                  }
+                ]
+              }
+            ],
+            "sub_agents": []
+          }
+        },
+        "turns": [
+          {
+            "turn_index": 0,
+            "turn_id": "turn_0",
+            "events": [
+              {
+                "author": "root_agent",
+                "content": {
+                  "parts": [
+                    {
+                      "function_call": {
+                        "id": "adk-bc3e575e-bcf4-4409-9339-865ce35dc0ba",
+                        "args": {
+                          "agent_name": "research_agent"
+                        },
+                        "name": "transfer_to_agent"
+                      }
+                    }
+                  ],
+                  "role": "model"
+                }
+              },
+              {
+                "author": "root_agent",
+                "content": {
+                  "parts": [
+                    {
+                      "function_response": {
+                        "id": "adk-bc3e575e-bcf4-4409-9339-865ce35dc0ba",
+                        "name": "transfer_to_agent",
+                        "response": {
+                          "result": null
+                        }
+                      }
+                    }
+                  ],
+                  "role": "user"
+                }
+              },
+              {
+                "author": "research_agent",
+                "content": {
+                  "parts": [
+                    {
+                      "text": "The Google Pixel 8 Pro and the iPhone 15 Pro are the flagship devices from their respective ecosystems, each excelling in different areas. The Pixel 8 Pro focuses on AI-driven features and long-term software support, while the iPhone 15 Pro emphasizes raw performance, premium materials, and video capability.\n\nHere is a detailed comparison of the two devices.\n\n---\n\n## Google Pixel 8 Pro vs. iPhone 15 Pro: Detailed Comparison\n\n| Feature | Google Pixel 8 Pro | iPhone 15 Pro |\n| :--- | :--- | :--- |\n| **Starting Price (MSRP)** | **$999.00** (128GB Storage, 12GB RAM) | **$999.00** (128GB Storage) |\n| **Processor** | **Google Tensor G3** | **Apple A17 Pro** (3nm Chip) |\n| **Display** | 6.7-inch Super Actua OLED | 6.1-inch Super Retina XDR |\n| **Refresh Rate** | 1Hz - 120Hz Dynamic | 1Hz - 120Hz ProMotion |\n| **Peak Brightness** | Up to **2,400 nits** | Up to **3,000 nits** (HDR content) |\n| **Main Rear Camera** | 50MP Main, 48MP Ultrawide, **48MP 5x Telephoto** | 48MP Main, 12MP Ultrawide, **12MP 3x Telephoto** |\n| **Body Material** | Aluminum frame, Matte Glass Back | **Titanium** (Lighter and more comfortable) |\n| **Software Support** | **7 Years** of OS and Security Updates | Typically 5-6 years of iOS support |\n| **Unique Feature** | Exclusive Google **AI/Assistant features**, Thermometer | Customizable **Action Button**, **USB-C** port |\n\n---\n\n## Key Specifications and Features\n\n### Google Pixel 8 Pro\n\nThe Pixel 8 Pro is Google’s top-tier phone, defined by its artificial intelligence (AI) and computational photography.\n*   **Processor:** The **Google Tensor G3** chip is specifically optimized for on-device machine learning, driving advanced AI features but offering lower raw performance compared to the A17 Pro, especially under sustained load.\n*   **Cameras:** It features a versatile triple-camera system, notably including a **5x optical zoom** telephoto lens. Key features are AI-assisted editing tools like **Magic Eraser** and **Best Take**.\n*   **Display:** The 6.7-inch Super Actua OLED display is very bright, with a peak brightness of 2,400 nits, and uses a dynamic refresh rate from 1Hz to 120Hz for smooth scrolling and efficiency.\n*   **Software Commitment:** A standout feature is Google’s promise of **7 years of software and security updates**, making it the current leader in long-term support.\n\n### iPhone 15 Pro\n\nThe iPhone 15 Pro is a compact powerhouse built for speed and premium feel.\n*   **Processor:** The **A17 Pro** chip delivers exceptional, class-leading performance, making it ideal for demanding tasks, gaming (including console titles), and video editing.\n*   **Cameras:** The 48MP main sensor delivers exceptional detail. While it only has a **3x optical zoom** telephoto (the 5x is reserved for the Pro Max), it is renowned for its **superior video quality**.\n*   **Design & Hardware:** It features a new **titanium build**, making it lighter and more comfortable to hold than previous Pro models. It also replaces the mute switch with a customizable **Action Button**.\n*   **Connectivity:** The switch to a **USB-C port** finally brings a standard connection for charging and data transfer, with support for advanced features.\n\n---\n\n## Review Sentiment, Pros, and Cons\n\n| Category | Google Pixel 8 Pro | iPhone 15 Pro |\n| :--- | :--- | :--- |\n| **Overall Sentiment** | Highly rated, especially for its camera and software features. Considered a compelling flagship that competes with the best. | Uncompromising, premium flagship with a focus on raw power and design refinements. A top-tier compact smartphone. |\n| **Distinct Pros** | **7 Years of Software Support** (OS & Security), **Exclusive AI Features** (Magic Eraser, Call Screening), **5x Telephoto Zoom** camera, Clean Android experience. | **Exceptional A17 Pro Performance** (Best in class for speed/gaming), **Premium Titanium Design** (Lighter/More Comfortable), Customizable **Action Button**, **Superior Video Capture Quality**. |\n| **Distinct Cons** | **Tensor G3 is slower** in raw performance/stability under load than rivals, **Battery life is not competitive** against the best flagships, Charging speed is modest/behind the curve. | **Limited to 3x Optical Zoom** (less than Pro Max/Pixel 8 Pro), **Premium Pricing**, Battery life is average, with no significant improvement over the predecessor."
+                    }
+                  ],
+                  "role": "model"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
