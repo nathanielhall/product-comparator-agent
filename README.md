@@ -1,7 +1,17 @@
 # product-comparator
 
-Simple ReAct agent
 Agent generated with `agents-cli` version `0.5.0`
+
+## Architecture (ADK 2.0 Dynamic Workflows)
+
+This agent uses ADK 2.0 Dynamic Workflows where orchestration is handled programmatically via Python code rather than prompt-based instructions. Sub-agents operate in isolated modes to prevent session trapping.
+
+### Execution Flow
+
+1. **Intake & Disambiguation**: The workflow receives the user query and passes it to the `search_helper_agent` (mode: `task`). If the product names are ambiguous, it must pause and ask the user for clarification before proceeding.
+2. **Sequential Research Loop**: The workflow programmatically iterates over the validated list of products. For each product, it invokes the `research_agent` (mode: `single_turn`) to gather specifications and stores the result in a collection.
+3. **Synthesis**: The workflow passes the aggregated research collection to the `comparison_agent` (mode: `single_turn`).
+4. **Return**: The workflow returns the final markdown comparison from the `comparison_agent` to the user.
 
 ## Project Structure
 
