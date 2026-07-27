@@ -28,6 +28,7 @@ from google.adk.models import Gemini
 from google.adk.tools import google_search
 from google.adk.workflow import node
 from google.genai import types
+from google.adk.agents.callback_context import CallbackContext
 
 # Setup Google Cloud project credentials and environment variables
 try:
@@ -131,6 +132,10 @@ class ComparisonInput(BaseModel):
         description="List of structured research data for the confirmed products to compare."
     )
 
+# Define the callback that triggers Memory Bank extraction
+async def add_session_to_memory_callback(callback_context: CallbackContext):
+   await callback_context.add_session_to_memory()
+   return None
 
 # ==========================================
 # Specialized Standalone Sub-Agents Definition
@@ -155,6 +160,7 @@ Guidelines:
 1. Parse the user request to identify specific product names or models.
 2. Use `google_search` to confirm product availability and details or resolve ambiguities.
 3. Return ONLY a comma-separated list of validated product names (for example: "iPhone 15 Pro, Google Pixel 8 Pro"). Do not include any sentences, introductory text, explanations, or markdown formatting.""",
+   	after_agent_callback=[add_session_to_memory_callback],  
     tools=[google_search],
 )
 
