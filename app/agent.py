@@ -140,7 +140,7 @@ search_helper_agent = Agent(
     name="search_helper_agent",
     description="Specialized helper to perform Google Web Search and return a summarized set of results or potential product matches.",
     model=Gemini(
-        model="gemini-flash-latest",
+        model="gemini-2.5-flash",
         retry_options=types.HttpRetryOptions(attempts=3),
     ),
     mode="single_turn",
@@ -163,7 +163,7 @@ research_agent = Agent(
     name="research_agent",
     description="Researches a single confirmed product to extract detailed specifications, pricing, reviews, pros, and cons.",
     model=Gemini(
-        model="gemini-flash-latest",
+        model="gemini-2.5-flash",
         retry_options=types.HttpRetryOptions(attempts=3),
     ),
     mode="single_turn",
@@ -191,7 +191,7 @@ comparison_agent = Agent(
     name="comparison_agent",
     description="Compares multiple researched products and generates a synthesis summary and recommendation.",
     model=Gemini(
-        model="gemini-flash-latest",
+        model="gemini-2.5-pro",
         retry_options=types.HttpRetryOptions(attempts=3),
     ),
     mode="single_turn",
