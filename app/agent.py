@@ -30,8 +30,11 @@ from google.adk.agents.callback_context import CallbackContext
 from google.adk.agents.context import Context
 from google.adk.apps import App
 from google.adk.events import RequestInput
+from google.adk.memory import VertexAiMemoryBankService
+from google.adk.memory.memory_entry import MemoryEntry
 from google.adk.models import Gemini
 from google.adk.tools import google_search as adk_google_search
+from google.adk.tools import load_memory
 from google.adk.workflow import node
 from google.genai import types
 
@@ -121,15 +124,35 @@ def redact_pii(text: Any) -> str:
 # ==========================================
 
 
-async def save_session_memory_async(payload: Any) -> None:
-    """Asynchronously simulates saving the final comparison payload to persistent Memory Bank.
+async def save_session_memory_async(
+    payload: Any,
+    app_name: str = "app",
+    user_id: str = "default_user",
+) -> None:
+    """Asynchronously persists the final comparison payload to persistent Memory Bank via VertexAiMemoryBankService.
 
     Args:
         payload (Any): The final comparison dataset or summary payload to persist.
+        app_name (str): The application name.
+        user_id (str): The user ID for the session.
     """
     try:
-        await asyncio.sleep(0.05)
-        logger.info("Successfully persisted session comparison payload to Memory Bank.")
+        if isinstance(payload, str):
+            text_content = payload
+        else:
+            text_content = str(payload)
+
+        memory_entry = MemoryEntry(
+            content=types.Content(parts=[types.Part.from_text(text=text_content)])
+        )
+        await memory_service.add_memory(
+            app_name=app_name,
+            user_id=user_id,
+            memories=[memory_entry],
+        )
+        logger.info(
+            "Successfully persisted session comparison payload to Vertex AI Memory Bank."
+        )
     except Exception as e:
         logger.error(f"Failed to persist session memory: {e}")
 
@@ -300,6 +323,7 @@ search_helper_agent = Agent(
 
 You have access to:
 - `google_search`: A tool to search Google.
+- `load_memory`: A tool to fetch prior user interactions, preferences, or product history from Memory Bank.
 
 Guidelines:
 1. Parse the user request to identify specific product names or models.
@@ -307,7 +331,7 @@ Guidelines:
 3. If the user request is ambiguous (e.g., 'iPhone 15' without specifying base model, Pro, or Pro Max), explicitly return 'AMBIGUOUS: <explanation and options>' indicating the ambiguity.
 4. Otherwise, return ONLY a comma-separated list of validated product names (for example: "iPhone 15 Pro, Google Pixel 8 Pro"). Do not include any sentences, introductory text, explanations, or markdown formatting.""",
     after_agent_callback=[add_session_to_memory_callback],
-    tools=[google_search],
+    tools=[google_search, load_memory],
 )
 
 
@@ -325,6 +349,7 @@ research_agent = Agent(
 
 You have access to:
 - `google_search`: A tool to search Google.
+- `load_memory`: A tool to fetch prior user interactions, preferences, or product history from Memory Bank.
 
 Guidelines:
 1. Use `google_search` to find:
@@ -335,7 +360,7 @@ Guidelines:
    - Distinct cons (weaknesses, negative aspects).
 2. Synthesize and organize this information carefully.
 3. Return a comprehensive and detailed text report containing all these attributes. Do not use placeholder values.""",
-    tools=[google_search],
+    tools=[google_search, load_memory],
 )
 
 
@@ -351,6 +376,9 @@ comparison_agent = Agent(
     disallow_transfer_to_peers=True,
     instruction="""You are the Comparison Agent. Your task is to receive structured data for multiple confirmed products and synthesize them to provide a comprehensive, objective, and clear comparison.
 
+You have access to:
+- `load_memory`: A tool to fetch prior user interactions, preferences, or product history from Memory Bank.
+
 Guidelines:
 1. Compare the products on key dimensions (e.g., price, specs, pros/cons, review sentiments).
 2. Generate:
@@ -358,6 +386,7 @@ Guidelines:
    - A synthesized summary of how they compare.
    - A balanced "Pros and Cons" comparison.
 3. Offer tentative, unbiased guidance and tailored recommendation based on different user needs or priorities (e.g., "Best for battery life", "Best value", "Best for photography").""",
+    tools=[load_memory],
 )
 
 
@@ -474,6 +503,15 @@ async def product_comparator_workflow(ctx: Context, node_input: Any = None) -> A
 
 root_agent = product_comparator_workflow
 
+
+# Explicitly define VertexAiMemoryBankService as the persistence layer
+memory_service = VertexAiMemoryBankService(
+    project=project_id,
+    location=os.environ.get("GOOGLE_CLOUD_AGENT_ENGINE_LOCATION", "us-central1"),
+    agent_engine_id=os.environ.get(
+        "GOOGLE_CLOUD_AGENT_ENGINE_ID", "8234851160100438016"
+    ),
+)
 
 app = App(
     root_agent=product_comparator_workflow,
