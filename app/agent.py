@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import datetime
 import os
 from typing import Any
@@ -248,14 +249,17 @@ async def product_comparator_workflow(ctx: Context, node_input: Any = None) -> s
     if not validated_products:
         validated_products = [user_query]
 
-    # 2. Sequential Research Loop
-    research_collection = []
+    # 2. Parallel Research Execution
+    research_tasks = []
     for product in validated_products:
-        product_research = await ctx.run_node(
-            research_agent,
-            node_input=f"Research product: {product}",
+        research_tasks.append(
+            ctx.run_node(
+                research_agent,
+                node_input=f"Research product: {product}",
+            )
         )
-        research_collection.append(str(product_research))
+    research_results = await asyncio.gather(*research_tasks)
+    research_collection = [str(result) for result in research_results]
 
     # 3. Synthesis
     aggregated_research = "\n\n---\n\n".join(research_collection)
